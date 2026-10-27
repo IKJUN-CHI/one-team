@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>입주·퇴거 사진 비교</title>
+<style>
+  :root {
+    --bg: #f6f5f2;
+    --card: #ffffff;
+    --text: #1f1f1f;
+    --muted: #6b6b6b;
+    --line: #dddad3;
+    --accent: #2f5d8a;
+    --notice-bg: #fff6dc;
+    --notice-line: #e8cf85;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    line-height: 1.5;
+  }
+  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  h2 { font-size: 1.15rem; margin: 32px 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 12px; font-size: 0.95rem; }
+
+  .notice {
+    background: var(--notice-bg);
+    border: 1px solid var(--notice-line);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 16px 0;
+    font-size: 0.95rem;
+  }
+
+  /* 사진 올리기 */
+  form.upload {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px;
+    display: grid;
+    gap: 14px;
+  }
+  .step { display: grid; gap: 6px; }
+  .step > .label { font-weight: 600; }
+  .choices { display: flex; flex-wrap: wrap; gap: 16px; }
+  .choices label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .selects { display: flex; flex-wrap: wrap; gap: 10px; }
+  select, input[type=file] { font: inherit; }
+  select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; min-width: 140px; }
+  button.primary {
+    justify-self: start;
+    font: inherit;
+    font-weight: 600;
+    padding: 8px 18px;
+    border: 0;
+    border-radius: 6px;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+  }
+  .message { min-height: 1.5em; font-size: 0.95rem; color: var(--muted); }
+  .message.error { color: #b3261e; }
+
+  /* 나란히 보기 */
+  .pairs { display: grid; gap: 16px; margin-top: 12px; }
+  .pair {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px;
+  }
+  .pair-title { font-weight: 600; margin: 0 0 8px; }
+  .sides { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .side-label { font-size: 0.9rem; color: var(--muted); margin-bottom: 4px; }
+  .photo {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: contain;
+    background: #eeece7;
+    border-radius: 6px;
+    cursor: zoom-in;
+    border: 0;
+    padding: 0;
+  }
+  .photo img { width: 100%; height: 100%; object-fit: contain; display: block; border-radius: 6px; }
+  .empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    border: 2px dashed var(--line);
+    border-radius: 6px;
+    color: var(--muted);
+  }
+  .none-yet { color: var(--muted); }
+
+  /* 좁은 화면: 위아래로 */
+  @media (max-width: 600px) {
+    .sides { grid-template-columns: 1fr; }
+  }
+
+  /* 크게 보기 */
+  .viewer {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 10;
+  }
+  .viewer.open { display: flex; }
+  .viewer img { max-width: 100%; max-height: calc(100vh - 110px); object-fit: contain; background: #fff; }
+  .viewer .caption { color: #fff; margin-top: 10px; }
+  .viewer .close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font: inherit;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid #fff;
+    background: transparent;
+    color: #fff;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>입주·퇴거 사진 비교</h1>
+  <p class="sub">같은 위치의 입주 사진과 퇴실 사진을 나란히 보여 줍니다. 사진을 누르면 크게 볼 수 있습니다.</p>
+
+  <div class="notice">창을 닫거나 새로고침하면 올린 사진이 사라집니다. 사진은 이 기기 밖으로 보내지지 않습니다.</div>
+
+  <h2>예시 (연습·시연용 그림)</h2>
+  <div id="samplePairs" class="pairs"></div>
+
+  <h2>사진 올리기</h2>
+  <form class="upload" id="uploadForm">
+    <div class="step">
+      <span class="label">1. 사진 고르기</span>
+      <input type="file" id="fileInput" accept="image/*">
+    </div>
+    <div class="step">
+      <span class="label">2. 입주 사진인가요, 퇴실 사진인가요?</span>
+      <div class="choices">
+        <label><input type="radio" name="when" value="movein" checked> 입주</label>
+        <label><input type="radio" name="when" value="moveout"> 퇴실</label>
+      </div>
+    </div>
+    <div class="step">
+      <span class="label">3. 위치 고르기</span>
+      <div class="selects">
+        <select id="spaceSelect" aria-label="공간"></select>
+        <select id="partSelect" aria-label="부위"></select>
+      </div>
+    </div>
+    <button type="submit" class="primary">올리기</button>
+    <div class="message" id="message" role="status"></div>
+  </form>
+
+  <h2>올린 사진</h2>
+  <div id="myPairs" class="pairs"></div>
+</main>
+
+<div class="viewer" id="viewer" role="dialog" aria-modal="true" aria-label="사진 크게 보기">
+  <button type="button" class="close" id="viewerClose">닫기</button>
+  <img id="viewerImg" alt="">
+  <div class="caption" id="viewerCaption"></div>
+</div>
+
+<script>
+  // 위치 목록 (스펙 5.2, 고정)
+  const SPACES = ["현관", "방", "주방", "욕실", "베란다·창가"];
+  const PARTS = ["벽", "바닥", "천장", "문·창문", "설비"];
+  const WHEN_LABEL = { movein: "입주", moveout: "퇴실" };
+
+  // ---------- 예시 그림 (사진 대신 단순한 그림) ----------
+  function svgUrl(inner) {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">' + inner + '</svg>';
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  }
+
+  const wall = '<rect width="400" height="300" fill="#efe9dc"/>'
+    + '<rect y="250" width="400" height="50" fill="#c9b79a"/>'
+    + '<rect x="40" y="60" width="120" height="90" fill="#cfe3f2" stroke="#8a8a8a" stroke-width="4"/>'
+    + '<line x1="100" y1="60" x2="100" y2="150" stroke="#8a8a8a" stroke-width="3"/>'
+    + '<rect x="0" y="244" width="400" height="6" fill="#a8977c"/>';
+  const stain = '<ellipse cx="280" cy="140" rx="46" ry="32" fill="#b7a27c" opacity="0.75"/>'
+    + '<ellipse cx="300" cy="160" rx="22" ry="14" fill="#9c8762" opacity="0.7"/>';
+
+  const sinkBase = '<rect width="400" height="300" fill="#f2f2f2"/>'
+    + '<rect x="40" y="120" width="320" height="150" fill="#ffffff" stroke="#9a9a9a" stroke-width="4"/>'
+    + '<rect x="110" y="150" width="180" height="70" rx="10" fill="#d9dde0" stroke="#8a8f94" stroke-width="3"/>'
+    + '<rect x="190" y="70" width="20" height="60" fill="#9aa0a6"/>'
+    + '<rect x="190" y="70" width="60" height="16" fill="#9aa0a6"/>';
+  const scratch = '<path d="M70 240 L150 228 M78 250 L160 236" stroke="#5a5a5a" stroke-width="3"/>';
+
+  const tiles = (() => {
+    let s = '<rect width="400" height="300" fill="#e8eef0"/>';
+    for (let x = 0; x <= 400; x += 80) s += '<line x1="' + x + '" y1="0" x2="' + x + '" y2="300" stroke="#b8c4c8" stroke-width="3"/>';
+    for (let y = 0; y <= 300; y += 75) s += '<line x1="0" y1="' + y + '" x2="400" y2="' + y + '" stroke="#b8c4c8" stroke-width="3"/>';
+    return s;
+  })();
+  const crack = '<path d="M170 80 L190 110 L182 135 L205 160 L198 190" fill="none" stroke="#3d3d3d" stroke-width="3"/>';
+
+  const SAMPLES = [
+    { space: "방", part: "벽", movein: svgUrl(wall), moveout: svgUrl(wall + stain) },
+    { space: "주방", part: "설비", movein: svgUrl(sinkBase), moveout: svgUrl(sinkBase + scratch) },
+    { space: "욕실", part: "바닥", movein: svgUrl(tiles), moveout: svgUrl(tiles + crack) },
+  ];
+
+  // ---------- 올린 사진: 위치마다 입주 1장, 퇴실 1장 ----------
+  // key: "공간|부위" → { movein: url, moveout: url }
+  const uploaded = new Map();
+
+  // ---------- 화면 그리기 ----------
+  function locationName(space, part) { return space + " · " + part; }
+
+  function renderSide(url, when, title) {
+    const wrap = document.createElement("div");
+    const label = document.createElement("div");
+    label.className = "side-label";
+    label.textContent = WHEN_LABEL[when];
+    wrap.appendChild(label);
+
+    if (url) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "photo";
+      btn.setAttribute("aria-label", title + " " + WHEN_LABEL[when] + " 사진 크게 보기");
+      const img = document.createElement("img");
+      img.src = url;
+      img.alt = title + " " + WHEN_LABEL[when] + " 사진";
+      btn.appendChild(img);
+      btn.addEventListener("click", () => openViewer(url, WHEN_LABEL[when] + " · " + title));
+      wrap.appendChild(btn);
+    } else {
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = WHEN_LABEL[when] + " 사진 없음";
+      wrap.appendChild(empty);
+    }
+    return wrap;
+  }
+
+  function renderPair(space, part, movein, moveout) {
+    const title = locationName(space, part);
+    const pair = document.createElement("section");
+    pair.className = "pair";
+    const h = document.createElement("h3");
+    h.className = "pair-title";
+    h.textContent = title;
+    pair.appendChild(h);
+    const sides = document.createElement("div");
+    sides.className = "sides";
+    sides.appendChild(renderSide(movein, "movein", title));
+    sides.appendChild(renderSide(moveout, "moveout", title));
+    pair.appendChild(sides);
+    return pair;
+  }
+
+  function renderSamples() {
+    const box = document.getElementById("samplePairs");
+    SAMPLES.forEach(s => box.appendChild(renderPair(s.space, s.part, s.movein, s.moveout)));
+  }
+
+  function renderUploaded() {
+    const box = document.getElementById("myPairs");
+    box.innerHTML = "";
+    if (uploaded.size === 0) {
+      const p = document.createElement("p");
+      p.className = "none-yet";
+      p.textContent = "아직 올린 사진이 없습니다.";
+      box.appendChild(p);
+      return;
+    }
+    // 위치 목록 순서대로 보여 준다
+    SPACES.forEach(space => PARTS.forEach(part => {
+      const entry = uploaded.get(space + "|" + part);
+      if (entry) box.appendChild(renderPair(space, part, entry.movein, entry.moveout));
+    }));
+  }
+
+  // ---------- 사진 올리기 ----------
+  function fillSelect(select, items) {
+    items.forEach(item => {
+      const opt = document.createElement("option");
+      opt.value = item;
+      opt.textContent = item;
+      select.appendChild(opt);
+    });
+  }
+
+  function showMessage(text, isError) {
+    const m = document.getElementById("message");
+    m.textContent = text;
+    m.className = "message" + (isError ? " error" : "");
+  }
+
+  document.getElementById("uploadForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const fileInput = document.getElementById("fileInput");
+    const file = fileInput.files[0];
+    if (!file) { showMessage("먼저 사진을 골라 주세요.", true); return; }
+    if (!file.type.startsWith("image/")) { showMessage("사진 파일만 올릴 수 있습니다.", true); return; }
+
+    const when = document.querySelector('input[name="when"]:checked').value;
+    const space = document.getElementById("spaceSelect").value;
+    const part = document.getElementById("partSelect").value;
+    const key = space + "|" + part;
+
+    const entry = uploaded.get(key) || { movein: null, moveout: null };
+    const replaced = Boolean(entry[when]);
+    if (replaced) URL.revokeObjectURL(entry[when]);
+    entry[when] = URL.createObjectURL(file); // 기기 안에서만 쓰는 임시 주소
+    uploaded.set(key, entry);
+
+    renderUploaded();
+    showMessage(locationName(space, part) + " " + WHEN_LABEL[when] + " 사진을 " + (replaced ? "바꿔 넣었습니다." : "올렸습니다."), false);
+    fileInput.value = "";
+  });
+
+  // ---------- 크게 보기 ----------
+  const viewer = document.getElementById("viewer");
+  function openViewer(url, caption) {
+    document.getElementById("viewerImg").src = url;
+    document.getElementById("viewerImg").alt = caption;
+    document.getElementById("viewerCaption").textContent = caption;
+    viewer.classList.add("open");
+    document.getElementById("viewerClose").focus();
+  }
+  function closeViewer() { viewer.classList.remove("open"); }
+  document.getElementById("viewerClose").addEventListener("click", closeViewer);
+  viewer.addEventListener("click", e => { if (e.target === viewer) closeViewer(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closeViewer(); });
+
+  // ---------- 올린 사진이 있을 때 창을 닫으려 하면 한 번 묻는다 ----------
+  window.addEventListener("beforeunload", e => {
+    if (uploaded.size > 0) { e.preventDefault(); e.returnValue = ""; }
+  });
+
+  fillSelect(document.getElementById("spaceSelect"), SPACES);
+  fillSelect(document.getElementById("partSelect"), PARTS);
+  renderSamples();
+  renderUploaded();
+</script>
+</body>
+</html>
