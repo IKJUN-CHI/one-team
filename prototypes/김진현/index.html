@@ -1,0 +1,791 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>집사이 배심원 평결</title>
+<style>
+  :root {
+    --bg: #f6f5f1; --card: #ffffff; --ink: #1f2522; --muted: #66706b; --line: #dcd9d0;
+    --accent: #2f6b4f; --accent-soft: #e4efe8; --warn: #a3412b; --warn-soft: #f8e7e2;
+    --landlord: #3b5ba5; --tenant: #c8792b; --dev: #6b4fa0; --dev-soft: #efe9f8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161a18; --card: #1f2522; --ink: #e8ebe9; --muted: #9aa49f; --line: #34403a;
+      --accent: #6cbf94; --accent-soft: #23362c; --warn: #f0937b; --warn-soft: #3a2420;
+      --landlord: #8aa6e8; --tenant: #e8a866; --dev: #b49be0; --dev-soft: #2b2438;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.6 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+  header { background: var(--card); border-bottom: 1px solid var(--line); padding: 14px 16px; position: sticky; top: 0; z-index: 5; }
+  .wrap { max-width: 820px; margin: 0 auto; }
+  header h1 { margin: 0 0 8px; font-size: 18px; }
+  .roles { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .roles span { color: var(--muted); font-size: 13px; margin-right: 4px; }
+  .roles button[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .notice { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
+  main { padding: 16px; }
+  h2 { font-size: 17px; margin: 0; }
+  h3 { font-size: 15px; margin: 0 0 8px; }
+  button { font: inherit; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.link { border: 0; background: none; color: var(--accent); padding: 0; text-decoration: underline; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .cards { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+  .card, section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  section { margin-bottom: 12px; }
+  .card { cursor: pointer; }
+  .card:hover { border-color: var(--accent); }
+  .card .title { font-weight: 600; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .badge { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); margin-left: 6px; vertical-align: 1px; }
+  .badge.waiting { background: var(--warn-soft); color: var(--warn); }
+  .badge.closed { background: var(--line); color: var(--ink); }
+  .empty { color: var(--muted); }
+  label { display: block; font-weight: 600; font-size: 14px; margin: 12px 0 4px; }
+  label .opt { font-weight: 400; color: var(--muted); }
+  input[type=text], input[type=number], input[type=month], textarea, select { width: 100%; font: inherit; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
+  textarea { min-height: 70px; resize: vertical; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+  @media (max-width: 560px) { .row { grid-template-columns: 1fr; } }
+  .choices { display: flex; gap: 14px; flex-wrap: wrap; }
+  .choices label { font-weight: 400; margin: 0; display: flex; gap: 6px; align-items: center; }
+  .privacy { background: var(--warn-soft); color: var(--warn); border-radius: 8px; padding: 8px 10px; font-size: 13px; margin: 12px 0 0; }
+  .ratio { display: flex; gap: 10px; align-items: center; }
+  .ratio input[type=range] { flex: 1; }
+  .ratio input[type=number] { width: 80px; }
+  .ratio-text { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .error { color: var(--warn); font-weight: 600; margin: 10px 0 0; white-space: pre-line; }
+  .ok { color: var(--accent); font-weight: 600; margin: 10px 0 0; }
+  .actions { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; }
+  dt { color: var(--muted); }
+  dd { margin: 0; white-space: pre-wrap; }
+  .sides { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 560px) { .sides { grid-template-columns: 1fr; } }
+  .side { border-top: 4px solid var(--line); }
+  .side.landlord { border-top-color: var(--landlord); }
+  .side.tenant { border-top-color: var(--tenant); }
+  .side p { white-space: pre-wrap; margin: 4px 0; }
+  .photos { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .photos img { width: 96px; height: 96px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); cursor: zoom-in; background: var(--bg); }
+  .quota { font-size: 14px; }
+  .quota b { font-variant-numeric: tabular-nums; }
+  .verdict { text-align: center; padding: 18px 0 8px; }
+  .verdict .big { font-size: 32px; font-weight: 700; }
+  .verdict .big .l { color: var(--landlord); }
+  .verdict .big .t { color: var(--tenant); }
+  .legal { font-size: 13px; color: var(--muted); text-align: center; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td.num { font-variant-numeric: tabular-nums; text-align: right; width: 56px; }
+  tr.cut td { color: var(--muted); text-decoration: line-through; }
+  .dev { border: 1px dashed var(--dev); background: var(--dev-soft); }
+  .dev h3 { color: var(--dev); }
+  #overlay { position: fixed; inset: 0; background: rgba(0,0,0,.8); display: flex; align-items: center; justify-content: center; z-index: 10; cursor: zoom-out; }
+  #overlay[hidden] { display: none; }
+  #overlay img { max-width: 94vw; max-height: 94vh; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>집사이 · 배심원 평결 <span class="badge">프로토타입</span></h1>
+    <div class="roles">
+      <span>지금 역할</span>
+      <button data-role="requester">요청자</button>
+      <button data-role="opponent">상대방</button>
+      <button data-role="juror">배심원</button>
+    </div>
+    <p class="notice">사건·투표·사진은 이 브라우저(IndexedDB)에만 저장되고 기기 밖으로 나가지 않아요. 새로고침해도 남아 있어요.</p>
+  </div>
+</header>
+<main><div class="wrap" id="app"></div></main>
+<div id="overlay" hidden><img alt=""></div>
+
+<script>
+const BASE_JURORS = 100;
+const MAX_EXTRA = 100;
+const MAX_PHOTOS = 3;
+const MAX_PHOTO_MB = 15;
+const REASON_MAX = 200;
+const CUT_RATE = 0.025; // 위·아래 각각 2.5%, 합쳐서 5%
+
+const SIDE = { landlord: '임대인', tenant: '임차인' };
+const OTHER = { landlord: 'tenant', tenant: 'landlord' };
+const STATUS = { waiting: '상대방 대기', voting: '투표 중', closed: '평결 완료' };
+const TYPE = { repair: '수리비', restore: '원상복구비' };
+const PRIVACY = '분쟁과 관계없는 개인정보(이름, 주소, 연락처 등)는 쓰지 마세요.';
+
+class UserError extends Error {}
+
+const state = { role: 'requester', view: { name: 'list' }, juror: null };
+let db;
+
+// ---------- 저장소 (IndexedDB) ----------
+
+function openDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('jibsai-jury', 1);
+    req.onupgradeneeded = () => {
+      req.result.createObjectStore('cases', { keyPath: 'id' });
+      req.result.createObjectStore('photos', { keyPath: 'id' });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function run(store, mode, fn) {
+  return new Promise((resolve, reject) => {
+    const t = db.transaction(store, mode);
+    const req = fn(t.objectStore(store));
+    t.oncomplete = () => resolve(req && req.result);
+    t.onerror = () => reject(t.error);
+  });
+}
+
+const getAllCases = () => run('cases', 'readonly', s => s.getAll());
+const getCase = id => run('cases', 'readonly', s => s.get(id));
+const putCase = c => run('cases', 'readwrite', s => s.put(c));
+const getPhoto = id => run('photos', 'readonly', s => s.get(id));
+
+// 한 트랜잭션 안에서 사건을 읽고 고쳐 저장한다. mutate가 던지면 아무것도 저장되지 않는다.
+function updateCase(id, mutate) {
+  return new Promise((resolve, reject) => {
+    const t = db.transaction('cases', 'readwrite');
+    const store = t.objectStore('cases');
+    let result, failure;
+    const get = store.get(id);
+    get.onsuccess = () => {
+      try {
+        result = mutate(get.result);
+        store.put(get.result);
+      } catch (e) {
+        failure = e;
+        t.abort();
+      }
+    };
+    t.oncomplete = () => resolve(result);
+    t.onabort = () => reject(failure || t.error);
+  });
+}
+
+async function savePhotos(files) {
+  const ids = files.map(() => newId());
+  await run('photos', 'readwrite', s => {
+    files.forEach((file, i) => s.put({ id: ids[i], blob: file, name: file.name }));
+  });
+  return ids;
+}
+
+function newId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+// ---------- 규칙 ----------
+
+function quota(c, side) {
+  return c.total / 2 - c.votes.filter(v => v.side === side).length;
+}
+
+function checkVote(c, name, side) {
+  if (c.status !== 'voting') throw new UserError('투표 중인 사건이 아니에요.');
+  if (name === c.requester.name || name === c.opponent.name) {
+    throw new UserError('당사자는 자기 사건에 투표할 수 없어요.');
+  }
+  if (c.votes.some(v => v.name === name)) {
+    throw new UserError('이 이름으로 이미 투표했어요. 투표는 한 사건에 한 번만 할 수 있어요.');
+  }
+  if (quota(c, side) <= 0) throw new UserError(`${SIDE[side]} 배심원 정원이 다 찼어요.`);
+}
+
+function addVote(c, vote) {
+  checkVote(c, vote.name, vote.side);
+  c.votes.push(vote);
+  if (c.votes.length === c.total) {
+    c.status = 'closed';
+    c.closedAt = Date.now();
+  }
+}
+
+// 비율 순으로 정렬해 위·아래에서 내림(총원 × 2.5%)표씩 빼고 평균을 낸다.
+function verdict(c) {
+  const sorted = c.votes.map((v, i) => ({ ...v, i })).sort((a, b) => a.ratio - b.ratio || a.i - b.i);
+  const cut = Math.floor(c.total * CUT_RATE);
+  sorted.forEach((v, idx) => { v.cut = idx < cut || idx >= sorted.length - cut; });
+  const kept = sorted.filter(v => !v.cut);
+  const mean = kept.reduce((sum, v) => sum + v.ratio, 0) / kept.length;
+  const landlord = Math.round(mean);
+  return { landlord, tenant: 100 - landlord, cut, kept: kept.length, sorted };
+}
+
+function checkPhotos(input) {
+  const files = [...input.files];
+  if (files.length > MAX_PHOTOS) throw new UserError(`사진은 최대 ${MAX_PHOTOS}장까지 올릴 수 있어요.`);
+  for (const f of files) {
+    if (!f.type.startsWith('image/')) throw new UserError(`사진 파일만 올릴 수 있어요: ${f.name}`);
+    if (f.size > MAX_PHOTO_MB * 1024 * 1024) {
+      throw new UserError(`사진 한 장은 ${MAX_PHOTO_MB}MB까지예요: ${f.name} (${(f.size / 1048576).toFixed(1)}MB)`);
+    }
+  }
+  return files;
+}
+
+function checkRatio(value) {
+  const n = Number(value);
+  if (value === '' || !Number.isInteger(n) || n < 0 || n > 100) {
+    throw new UserError('임대인 부담 비율은 0에서 100 사이의 정수로 적어 주세요.');
+  }
+  return n;
+}
+
+function required(value, label) {
+  const v = value.trim();
+  if (!v) throw new UserError(`${label}을(를) 적어 주세요.`);
+  return v;
+}
+
+// ---------- 화면 조각 ----------
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+const won = n => Number(n).toLocaleString('ko-KR') + '원';
+
+function ratioField(name, value = 50) {
+  return `
+    <div class="ratio">
+      <input type="range" min="0" max="100" step="1" value="${value}" data-sync="${name}" aria-label="임대인 부담 비율">
+      <input type="number" min="0" max="100" step="1" value="${value}" name="${name}" required>%
+    </div>
+    <div class="ratio-text" data-ratio-text="${name}"></div>`;
+}
+
+function bindRatio(root) {
+  root.querySelectorAll('[data-sync]').forEach(range => {
+    const num = root.querySelector(`[name="${range.dataset.sync}"]`);
+    const text = root.querySelector(`[data-ratio-text="${range.dataset.sync}"]`);
+    const show = () => {
+      const n = Number(num.value);
+      text.textContent = num.value !== '' && n >= 0 && n <= 100 ? `임대인 ${n}% · 임차인 ${100 - n}% 부담` : '';
+    };
+    range.addEventListener('input', () => { num.value = range.value; show(); });
+    num.addEventListener('input', () => { range.value = num.value; show(); });
+    show();
+  });
+}
+
+function photoField(name) {
+  return `
+    <label>사진 <span class="opt">(선택 · 최대 ${MAX_PHOTOS}장 · 장당 ${MAX_PHOTO_MB}MB · 원본 그대로 저장)</span></label>
+    <input type="file" name="${name}" accept="image/*" multiple>
+    <p class="error" data-photo-error="${name}" hidden></p>`;
+}
+
+function bindPhotoField(root, name) {
+  const input = root.querySelector(`[name="${name}"]`);
+  const msg = root.querySelector(`[data-photo-error="${name}"]`);
+  input.addEventListener('change', () => {
+    try {
+      checkPhotos(input);
+      msg.hidden = true;
+    } catch (e) {
+      msg.textContent = e.message;
+      msg.hidden = false;
+      input.value = '';
+    }
+  });
+}
+
+function photosHtml(ids) {
+  if (!ids || !ids.length) return '<div class="meta">사진 없음</div>';
+  return `<div class="photos">${ids.map(id => `<img data-photo="${esc(id)}" alt="증거 사진">`).join('')}</div>`;
+}
+
+async function loadPhotos(root) {
+  for (const img of root.querySelectorAll('img[data-photo]')) {
+    const rec = await getPhoto(img.dataset.photo);
+    if (rec) img.src = URL.createObjectURL(rec.blob);
+  }
+}
+
+function caseInfoHtml(c) {
+  return `
+    <section>
+      <h3>사건 정보</h3>
+      <dl>
+        <dt>사건 유형</dt><dd>${TYPE[c.type]}</dd>
+        <dt>문제 부위</dt><dd>${esc(c.part)}</dd>
+        <dt>발생 시기</dt><dd>${esc(c.when)}</dd>
+        <dt>다투는 금액</dt><dd>${won(c.amount)}</dd>
+        <dt>계약 특약</dt><dd>${c.clause ? esc(c.clause) : '<span class="meta">없음</span>'}</dd>
+        <dt>배심원</dt><dd>총 ${c.total}명 (임대인 ${c.total / 2} · 임차인 ${c.total / 2})</dd>
+      </dl>
+    </section>`;
+}
+
+// showNames: 당사자 화면이면 이름을, showRatio: 당사자 화면이거나 평결 후면 주장 비율을 보여준다.
+function sidesHtml(c, { showNames, showRatio }) {
+  const parties = [c.requester, c.opponent].filter(p => p.reason !== undefined);
+  const bySide = side => parties.find(p => p.side === side);
+  const block = side => {
+    const p = bySide(side);
+    const head = `${SIDE[side]} 측${showNames && p ? ` · ${esc(p.name)}` : ''}`;
+    if (!p) return `<section class="side ${side}"><h3>${head}</h3><p class="meta">아직 주장을 적지 않았어요.</p></section>`;
+    return `
+      <section class="side ${side}">
+        <h3>${head}</h3>
+        ${showRatio ? `<p><b>주장: 임대인 ${p.ratio}% · 임차인 ${100 - p.ratio}%</b></p>` : ''}
+        <p>${esc(p.reason)}</p>
+        ${photosHtml(p.photoIds)}
+      </section>`;
+  };
+  return `<div class="sides">${block('landlord')}${block('tenant')}</div>`;
+}
+
+function quotaHtml(c) {
+  return `남은 정원: 임대인 <b>${quota(c, 'landlord')}</b> / 임차인 <b>${quota(c, 'tenant')}</b>`;
+}
+
+function jurorPanelHtml() {
+  if (state.juror) {
+    return `
+      <section>
+        배심원 <b>${esc(state.juror.name)}</b> · ${SIDE[state.juror.side]} 경험
+        <button class="link" id="juror-change">바꾸기</button>
+      </section>`;
+  }
+  return `
+    <section>
+      <h3>배심원으로 들어가기</h3>
+      <form id="juror-form">
+        <label>이름(닉네임)</label>
+        <input type="text" name="name" maxlength="30">
+        <label>자격</label>
+        <div class="choices">
+          <label><input type="radio" name="side" value="landlord"> 나는 현재 또는 과거에 임대인이었다</label>
+          <label><input type="radio" name="side" value="tenant"> 나는 현재 또는 과거에 임차인이었다</label>
+        </div>
+        <div class="actions"><button class="primary">들어가기</button></div>
+        <p class="error" hidden></p>
+      </form>
+    </section>`;
+}
+
+function bindJurorPanel(root) {
+  root.querySelector('#juror-change')?.addEventListener('click', () => { state.juror = null; render(); });
+  const form = root.querySelector('#juror-form');
+  if (!form) return;
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const err = form.querySelector('.error');
+    try {
+      const name = required(form.name.value, '이름');
+      const side = form.side.value;
+      if (!side) throw new UserError('임대인이었는지 임차인이었는지 하나를 골라 주세요.');
+      state.juror = { name, side };
+      render();
+    } catch (ex) {
+      err.textContent = ex.message;
+      err.hidden = false;
+    }
+  });
+}
+
+// ---------- 화면 ----------
+
+async function render() {
+  document.querySelectorAll('[data-role]').forEach(b => b.setAttribute('aria-pressed', b.dataset.role === state.role));
+  const app = document.getElementById('app');
+  const v = state.view;
+  if (v.name === 'new' && state.role === 'requester') return renderNew(app);
+  if (v.name === 'case') return renderCase(app, v.id);
+  return renderList(app);
+}
+
+function go(view) {
+  state.view = view;
+  window.scrollTo(0, 0);
+  render();
+}
+
+async function renderList(app) {
+  let cases = (await getAllCases()).sort((a, b) => b.createdAt - a.createdAt);
+  if (state.role === 'juror') cases = cases.filter(c => c.status !== 'waiting');
+
+  const card = c => `
+    <li class="card" data-open="${c.id}">
+      <div class="title">${TYPE[c.type]} · ${esc(c.part)}<span class="badge ${c.status}">${STATUS[c.status]}</span></div>
+      <div class="meta">
+        ${won(c.amount)} · ${esc(c.when)}
+        ${state.role !== 'juror' ? ` · 요청자 ${esc(c.requester.name)}(${SIDE[c.requester.side]}) · 상대방 ${esc(c.opponent.name)}(${SIDE[c.opponent.side]})` : ''}
+      </div>
+      ${c.status === 'voting' ? `<div class="quota">${quotaHtml(c)}</div>` : ''}
+      ${c.status === 'closed' ? `<div class="quota">평결: 임대인 ${verdict(c).landlord}% · 임차인 ${verdict(c).tenant}%</div>` : ''}
+      ${c.status === 'waiting' && state.role === 'opponent' ? '<div class="quota"><b>응답이 필요해요</b></div>' : ''}
+    </li>`;
+
+  const title = state.role === 'juror' ? '공개된 사건' : '사건 목록';
+  app.innerHTML = `
+    <div class="bar">
+      <h2>${title}</h2>
+      ${state.role === 'requester' ? '<button class="primary" id="new-case">새 사건</button>' : ''}
+    </div>
+    ${state.role === 'juror' ? jurorPanelHtml() : ''}
+    ${cases.length ? `<ul class="cards">${cases.map(card).join('')}</ul>`
+      : `<p class="empty">${state.role === 'juror' ? '양쪽이 동의해 공개된 사건이 아직 없어요.' : '아직 사건이 없어요.'}</p>`}`;
+
+  app.querySelector('#new-case')?.addEventListener('click', () => go({ name: 'new' }));
+  app.querySelectorAll('[data-open]').forEach(li => li.addEventListener('click', () => go({ name: 'case', id: li.dataset.open })));
+  bindJurorPanel(app);
+}
+
+function renderNew(app) {
+  app.innerHTML = `
+    <div class="bar"><h2>새 사건</h2><button id="back">목록으로</button></div>
+    <form id="new-form">
+      <section>
+        <h3>당사자</h3>
+        <div class="row">
+          <div><label>내 이름(닉네임)</label><input type="text" name="myName" maxlength="30"></div>
+          <div><label>상대방 이름(닉네임)</label><input type="text" name="otherName" maxlength="30"></div>
+        </div>
+        <label>내 입장</label>
+        <div class="choices">
+          <label><input type="radio" name="mySide" value="landlord"> 임대인</label>
+          <label><input type="radio" name="mySide" value="tenant"> 임차인</label>
+        </div>
+        <p class="meta">상대방의 입장은 자동으로 반대쪽이 돼요.</p>
+      </section>
+
+      <section>
+        <h3>사건 정보</h3>
+        <p class="privacy">${PRIVACY}</p>
+        <label>사건 유형</label>
+        <div class="choices">
+          <label><input type="radio" name="type" value="repair"> 수리비</label>
+          <label><input type="radio" name="type" value="restore"> 원상복구비</label>
+        </div>
+        <div class="row">
+          <div><label>문제가 생긴 부위</label><input type="text" name="part" maxlength="40" placeholder="예: 보일러, 거실 벽지"></div>
+          <div><label>발생 시기</label><input type="month" name="when"></div>
+        </div>
+        <label>다투는 금액 (원)</label>
+        <input type="number" name="amount" min="1" step="1">
+        <label>관련 계약 특약 <span class="opt">(선택)</span></label>
+        <textarea name="clause"></textarea>
+      </section>
+
+      <section>
+        <h3>내 주장</h3>
+        <p class="privacy">${PRIVACY}</p>
+        <label>임대인 부담 비율</label>
+        ${ratioField('ratio')}
+        <label>이유</label>
+        <textarea name="reason"></textarea>
+        ${photoField('photos')}
+      </section>
+
+      <section>
+        <h3>배심원 수</h3>
+        <p class="meta">기본 ${BASE_JURORS}명에 더할 인원을 짝수로 적어요 (0~${MAX_EXTRA}). 임대인과 임차인이 절반씩이에요.</p>
+        <label>추가 배심원 수</label>
+        <input type="number" name="extra" min="0" max="${MAX_EXTRA}" step="2" value="0">
+        <p class="ratio-text" id="total-text"></p>
+      </section>
+
+      <div class="actions"><button class="primary">상대방에게 보내기</button></div>
+      <p class="error" id="new-error" hidden></p>
+    </form>`;
+
+  const form = app.querySelector('#new-form');
+  app.querySelector('#back').addEventListener('click', () => go({ name: 'list' }));
+  bindRatio(form);
+  bindPhotoField(form, 'photos');
+
+  const totalText = app.querySelector('#total-text');
+  const showTotal = () => {
+    const extra = Number(form.extra.value);
+    totalText.textContent = Number.isInteger(extra) && extra >= 0 && extra <= MAX_EXTRA && extra % 2 === 0
+      ? `총 ${BASE_JURORS + extra}명 = 임대인 ${(BASE_JURORS + extra) / 2}명 + 임차인 ${(BASE_JURORS + extra) / 2}명`
+      : '추가 인원은 0에서 100 사이의 짝수여야 해요.';
+  };
+  form.extra.addEventListener('input', showTotal);
+  showTotal();
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const err = app.querySelector('#new-error');
+    try {
+      const myName = required(form.myName.value, '내 이름');
+      const otherName = required(form.otherName.value, '상대방 이름');
+      if (myName === otherName) throw new UserError('내 이름과 상대방 이름이 같아요.');
+      const mySide = form.mySide.value;
+      if (!mySide) throw new UserError('내 입장(임대인/임차인)을 골라 주세요.');
+      const type = form.type.value;
+      if (!type) throw new UserError('사건 유형을 골라 주세요.');
+      const part = required(form.part.value, '문제가 생긴 부위');
+      if (!form.when.value) throw new UserError('발생 시기를 골라 주세요.');
+      const amount = Number(form.amount.value);
+      if (!Number.isInteger(amount) || amount < 1) throw new UserError('다투는 금액을 1원 이상 정수로 적어 주세요.');
+      const ratio = checkRatio(form.ratio.value);
+      const reason = required(form.reason.value, '이유');
+      const files = checkPhotos(form.photos);
+      const extra = Number(form.extra.value);
+      if (!Number.isInteger(extra) || extra < 0 || extra > MAX_EXTRA || extra % 2 !== 0) {
+        throw new UserError('추가 배심원 수는 0에서 100 사이의 짝수여야 해요.');
+      }
+
+      const photoIds = await savePhotos(files);
+      const c = {
+        id: newId(),
+        createdAt: Date.now(),
+        status: 'waiting',
+        type, part, when: form.when.value, amount, clause: form.clause.value.trim(),
+        total: BASE_JURORS + extra,
+        requester: { name: myName, side: mySide, ratio, reason, photoIds },
+        opponent: { name: otherName, side: OTHER[mySide] },
+        votes: [],
+      };
+      await putCase(c);
+      go({ name: 'case', id: c.id });
+    } catch (ex) {
+      if (!(ex instanceof UserError)) console.error(ex);
+      err.textContent = ex.message;
+      err.hidden = false;
+    }
+  });
+}
+
+async function renderCase(app, id) {
+  const c = await getCase(id);
+  if (!c || (state.role === 'juror' && c.status === 'waiting')) return go({ name: 'list' });
+
+  const isParty = state.role !== 'juror';
+  const parts = [];
+  parts.push(`
+    <div class="bar">
+      <h2>${TYPE[c.type]} · ${esc(c.part)}<span class="badge ${c.status}">${STATUS[c.status]}</span></h2>
+      <button id="back">목록으로</button>
+    </div>`);
+  if (isParty) {
+    parts.push(`<p class="meta">요청자 ${esc(c.requester.name)}(${SIDE[c.requester.side]}) · 상대방 ${esc(c.opponent.name)}(${SIDE[c.opponent.side]})</p>`);
+  }
+  if (c.status === 'closed') parts.push(resultHtml(c));
+  parts.push(caseInfoHtml(c));
+  parts.push(sidesHtml(c, { showNames: isParty, showRatio: isParty || c.status === 'closed' }));
+
+  if (c.status === 'waiting') {
+    if (state.role === 'opponent') parts.push(respondFormHtml(c));
+    else parts.push('<section><p class="meta">상대방이 주장을 적고 동의해야 배심원에게 공개돼요.</p></section>');
+  }
+  if (c.status === 'voting') {
+    parts.push(`<section class="quota">${quotaHtml(c)}</section>`);
+    if (state.role === 'juror') parts.push(voteHtml(c));
+    parts.push(devFillHtml(c));
+  }
+
+  app.innerHTML = parts.join('');
+  app.querySelector('#back').addEventListener('click', () => go({ name: 'list' }));
+  bindJurorPanel(app);
+  bindRespond(app, c);
+  bindVote(app, c);
+  bindDevFill(app, c);
+  app.querySelector('#toggle-reasons')?.addEventListener('click', () => {
+    const t = app.querySelector('#reasons');
+    t.hidden = !t.hidden;
+    app.querySelector('#toggle-reasons').textContent = t.hidden ? '이유 보기' : '이유 접기';
+  });
+  await loadPhotos(app);
+}
+
+function respondFormHtml(c) {
+  return `
+    <form id="respond-form">
+      <section>
+        <h3>내 주장 (${SIDE[c.opponent.side]} · ${esc(c.opponent.name)})</h3>
+        <p class="privacy">${PRIVACY}</p>
+        <label>임대인 부담 비율</label>
+        ${ratioField('ratio')}
+        <label>이유</label>
+        <textarea name="reason"></textarea>
+        ${photoField('photos')}
+        <div class="actions"><button class="primary">내용에 동의하고 공개</button></div>
+        <p class="meta">공개하면 배심원에게 보이고, 양쪽 모두 사건을 고칠 수 없어요.</p>
+        <p class="error" id="respond-error" hidden></p>
+      </section>
+    </form>`;
+}
+
+function bindRespond(app, c) {
+  const form = app.querySelector('#respond-form');
+  if (!form) return;
+  bindRatio(form);
+  bindPhotoField(form, 'photos');
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const err = app.querySelector('#respond-error');
+    try {
+      const ratio = checkRatio(form.ratio.value);
+      const reason = required(form.reason.value, '이유');
+      const files = checkPhotos(form.photos);
+      if (!confirm('공개하면 양쪽 모두 사건을 고칠 수 없어요. 동의하고 공개할까요?')) return;
+      const photoIds = await savePhotos(files);
+      await updateCase(c.id, cur => {
+        if (cur.status !== 'waiting') throw new UserError('이미 공개된 사건이에요.');
+        Object.assign(cur.opponent, { ratio, reason, photoIds });
+        cur.status = 'voting';
+        cur.publishedAt = Date.now();
+      });
+      render();
+    } catch (ex) {
+      if (!(ex instanceof UserError)) console.error(ex);
+      err.textContent = ex.message;
+      err.hidden = false;
+    }
+  });
+}
+
+function voteHtml(c) {
+  if (!state.juror) return jurorPanelHtml();
+  try {
+    checkVote(c, state.juror.name, state.juror.side);
+  } catch (ex) {
+    return `
+      ${jurorPanelHtml()}
+      <section><p class="error">${esc(ex.message)}</p></section>`;
+  }
+  return `
+    ${jurorPanelHtml()}
+    <form id="vote-form">
+      <section>
+        <h3>내 판단</h3>
+        <p class="meta">양측의 이유와 사진만 보고 판단해 주세요. 양측이 주장한 비율은 평결이 닫힌 뒤 공개돼요.</p>
+        <label>임대인 부담 비율</label>
+        ${ratioField('ratio')}
+        <label>이유 <span class="opt">(선택 · ${REASON_MAX}자까지)</span></label>
+        <textarea name="reason" maxlength="${REASON_MAX}"></textarea>
+        <div class="actions"><button class="primary">제출</button></div>
+        <p class="error" id="vote-error" hidden></p>
+      </section>
+    </form>`;
+}
+
+function bindVote(app, c) {
+  const form = app.querySelector('#vote-form');
+  if (!form) return;
+  bindRatio(form);
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const err = app.querySelector('#vote-error');
+    try {
+      const ratio = checkRatio(form.ratio.value);
+      const reason = form.reason.value.trim().slice(0, REASON_MAX);
+      if (!confirm(`임대인 ${ratio}% · 임차인 ${100 - ratio}%로 제출할까요?\n제출 후에는 바꿀 수 없어요.`)) return;
+      const { name, side } = state.juror;
+      await updateCase(c.id, cur => addVote(cur, { name, side, ratio, reason, at: Date.now() }));
+      render();
+    } catch (ex) {
+      if (!(ex instanceof UserError)) console.error(ex);
+      err.textContent = ex.message;
+      err.hidden = false;
+    }
+  });
+}
+
+function devFillHtml(c) {
+  const left = c.total - c.votes.length;
+  return `
+    <section class="dev">
+      <h3>개발용 · 테스트 배심원 채우기</h3>
+      <p class="meta">테스트-임대인-1, 테스트-임차인-1 같은 이름으로 무작위 비율(0~100%) 투표를 채워요. 남은 정원이 많은 쪽부터 번갈아 채우고, 정원을 넘지 않아요.</p>
+      <div class="ratio">
+        <input type="number" id="fill-count" min="1" max="${left}" value="${Math.max(left - 1, 1)}">명
+        <button id="fill-btn">테스트 배심원 채우기 (개발용)</button>
+      </div>
+      <p class="error" id="fill-error" hidden></p>
+    </section>`;
+}
+
+function bindDevFill(app, c) {
+  const btn = app.querySelector('#fill-btn');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    const err = app.querySelector('#fill-error');
+    try {
+      const count = Number(app.querySelector('#fill-count').value);
+      if (!Number.isInteger(count) || count < 1) throw new UserError('채울 인원을 1 이상 정수로 적어 주세요.');
+      await updateCase(c.id, cur => {
+        const names = new Set(cur.votes.map(v => v.name));
+        for (let added = 0; added < count && cur.status === 'voting'; added++) {
+          const side = quota(cur, 'landlord') >= quota(cur, 'tenant') ? 'landlord' : 'tenant';
+          if (quota(cur, side) <= 0) break;
+          let k = 1, name;
+          do { name = `테스트-${SIDE[side]}-${k++}`; } while (names.has(name));
+          names.add(name);
+          addVote(cur, { name, side, ratio: Math.floor(Math.random() * 101), reason: '', test: true, at: Date.now() });
+        }
+      });
+      render();
+    } catch (ex) {
+      if (!(ex instanceof UserError)) console.error(ex);
+      err.textContent = ex.message;
+      err.hidden = false;
+    }
+  });
+}
+
+function resultHtml(c) {
+  const v = verdict(c);
+  const rows = v.sorted.map((x, idx) => `
+    <tr class="${x.cut ? 'cut' : ''}">
+      <td class="num">${idx + 1}</td>
+      <td>${SIDE[x.side]} 배심원</td>
+      <td class="num">${x.ratio}%</td>
+      <td>${x.reason ? esc(x.reason) : '<span class="meta">-</span>'}${x.cut ? ' <span class="meta">(극단값 제외)</span>' : ''}</td>
+    </tr>`).join('');
+  return `
+    <section>
+      <div class="verdict">
+        <div class="meta">배심원 ${c.total}명의 평결</div>
+        <div class="big"><span class="l">임대인 ${v.landlord}%</span> · <span class="t">임차인 ${v.tenant}%</span></div>
+        <div class="meta">위 ${v.cut}표 · 아래 ${v.cut}표 극단값 제외, ${v.kept}표로 평균</div>
+      </div>
+      <p class="legal">이 평결은 참고용이며 법적 효력이 없습니다.</p>
+      <div class="actions"><button id="toggle-reasons">이유 보기</button></div>
+      <table id="reasons" hidden>
+        <thead><tr><th>순서</th><th>배심원</th><th>임대인 부담</th><th>이유</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </section>`;
+}
+
+// ---------- 시작 ----------
+
+document.querySelectorAll('[data-role]').forEach(b => b.addEventListener('click', () => {
+  state.role = b.dataset.role;
+  go(state.view.name === 'case' ? state.view : { name: 'list' });
+}));
+
+const overlay = document.getElementById('overlay');
+document.addEventListener('click', e => {
+  if (e.target.matches('img[data-photo]') && e.target.src) {
+    overlay.querySelector('img').src = e.target.src;
+    overlay.hidden = false;
+  } else if (e.target.closest('#overlay')) {
+    overlay.hidden = true;
+  }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') overlay.hidden = true; });
+
+openDb().then(d => { db = d; render(); }).catch(e => {
+  document.getElementById('app').innerHTML = `<p class="error">브라우저 저장소(IndexedDB)를 열 수 없어요: ${esc(e && e.message)}</p>`;
+});
+</script>
+</body>
+</html>
