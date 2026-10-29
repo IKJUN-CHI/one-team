@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>집사이 · 사실 중심 리포트</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+  <p class="eyebrow">집사이 · 사실 중심 리포트</p>
+
+  <!-- 1. 작성 -->
+  <section id="step-write">
+    <h1>집에 무슨 문제가 생겼나요?</h1>
+    <p class="hint">편하게 쓰세요. 보내기 전에 사실만 정리해서 보여드려요.</p>
+    <label for="raw">상황</label>
+    <textarea id="raw" rows="7" placeholder="예) 욕실 천장에서 물이 새요. 지난주 화요일부터 그랬어요."></textarea>
+    <label for="photos">사진 (1~3장)</label>
+    <input id="photos" type="file" accept="image/*" multiple>
+    <div id="preview" class="photos small"></div>
+    <p id="write-error" class="error" hidden></p>
+    <button id="btn-organize">정리하기</button>
+  </section>
+
+  <!-- 2. 확인 -->
+  <section id="step-confirm" hidden>
+    <h1>보내기 전에 확인하세요</h1>
+    <p id="ai-failed" class="warn" hidden>AI 정리에 실패했어요. 직접 채워주세요.</p>
+    <p class="hint">모든 칸을 고칠 수 있어요. "미입력" 칸은 아는 만큼 채워 주세요.</p>
+    <div id="fields"></div>
+    <div id="confirm-photos" class="photos small"></div>
+    <p id="confirm-error" class="error" hidden></p>
+    <div class="actions">
+      <button id="btn-back" class="secondary">다시 쓰기</button>
+      <button id="btn-send">보내기</button>
+    </div>
+  </section>
+
+  <!-- 3. 링크 -->
+  <section id="step-done" hidden>
+    <h1>리포트를 만들었어요</h1>
+    <p class="hint">이 링크를 카톡이나 문자로 임대인에게 보내세요. 임대인은 로그인 없이 볼 수 있어요.</p>
+    <div class="link-box">
+      <input id="share-url" readonly>
+      <button id="btn-copy">링크 복사</button>
+    </div>
+    <p id="copied" class="ok" hidden>복사했어요.</p>
+    <p><a id="open-link" target="_blank">리포트 열어보기</a></p>
+  </section>
+</main>
+<script src="/app.js"></script>
+</body>
+</html>
